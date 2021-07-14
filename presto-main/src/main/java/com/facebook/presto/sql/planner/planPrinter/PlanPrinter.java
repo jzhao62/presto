@@ -15,7 +15,6 @@ package com.facebook.presto.sql.planner.planPrinter;
 
 import com.facebook.presto.Session;
 import com.facebook.presto.common.predicate.Domain;
-import com.facebook.presto.common.predicate.Marker;
 import com.facebook.presto.common.predicate.Range;
 import com.facebook.presto.common.predicate.TupleDomain;
 import com.facebook.presto.common.type.Type;
@@ -1208,33 +1207,7 @@ public class PlanPrinter
             domain.getValues().getValuesProcessor().consume(
                     ranges -> {
                         for (Range range : ranges.getOrderedRanges()) {
-                            StringBuilder builder = new StringBuilder();
-                            if (range.isSingleValue()) {
-                                String value = castToVarchar(type, range.getSingleValue(), functionAndTypeManager, session);
-                                builder.append('[').append(value).append(']');
-                            }
-                            else {
-                                builder.append((range.getLow().getBound() == Marker.Bound.EXACTLY) ? '[' : '(');
-
-                                if (range.getLow().isLowerUnbounded()) {
-                                    builder.append("<min>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getLow().getValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append(", ");
-
-                                if (range.getHigh().isUpperUnbounded()) {
-                                    builder.append("<max>");
-                                }
-                                else {
-                                    builder.append(castToVarchar(type, range.getHigh().getValue(), functionAndTypeManager, session));
-                                }
-
-                                builder.append((range.getHigh().getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
-                            }
-                            parts.add(builder.toString());
+                            parts.add(range.toString(session.getSqlFunctionProperties()));
                         }
                     },
                     discreteValues -> discreteValues.getValues().stream()
@@ -1301,7 +1274,7 @@ public class PlanPrinter
         try {
             FunctionHandle cast = functionAndTypeManager.lookupCast(CAST, type.getTypeSignature(), VARCHAR.getTypeSignature());
             Slice coerced = (Slice) new InterpretedFunctionInvoker(functionAndTypeManager).invoke(cast, session.getSqlFunctionProperties(), value);
-            return coerced.toStringUtf8();
+            return "\"" + coerced.toStringUtf8().replace("\"", "\\\"") + "\"";
         }
         catch (OperatorNotFoundException e) {
             return "<UNREPRESENTABLE VALUE>";

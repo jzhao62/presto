@@ -16,6 +16,7 @@ package com.facebook.presto.orc.metadata;
 import com.facebook.presto.orc.DwrfEncryptionProvider;
 import com.facebook.presto.orc.DwrfKeyProvider;
 import com.facebook.presto.orc.OrcDataSource;
+import com.facebook.presto.orc.OrcDataSourceId;
 import com.facebook.presto.orc.OrcDecompressor;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.OrcType.OrcTypeKind;
@@ -48,6 +49,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.stream.IntStream;
 
 import static com.facebook.presto.orc.metadata.CompressionKind.LZ4;
@@ -93,7 +95,9 @@ public class OrcMetadataReader
                 postScript.getMetadataLength(),
                 toCompression(postScript.getCompression()),
                 postScript.getCompressionBlockSize(),
-                toHiveWriterVersion(postScript.getWriterVersion()));
+                toHiveWriterVersion(postScript.getWriterVersion()),
+                OptionalInt.empty(),
+                Optional.empty());
     }
 
     private static HiveWriterVersion toHiveWriterVersion(int writerVersion)
@@ -145,6 +149,7 @@ public class OrcMetadataReader
                 toType(footer.getTypesList()),
                 toColumnStatistics(hiveWriterVersion, footer.getStatisticsList(), false),
                 toUserMetadata(footer.getMetadataList()),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -167,7 +172,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(List<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(OrcDataSourceId orcDataSourceId, List<OrcType> types, InputStream inputStream)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);

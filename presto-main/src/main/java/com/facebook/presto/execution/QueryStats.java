@@ -13,6 +13,7 @@
  */
 package com.facebook.presto.execution;
 
+import com.facebook.presto.common.RuntimeStats;
 import com.facebook.presto.operator.BlockedReason;
 import com.facebook.presto.operator.OperatorStats;
 import com.facebook.presto.operator.TableWriterOperator;
@@ -52,8 +53,11 @@ public class QueryStats
     private final DateTime endTime;
 
     private final Duration elapsedTime;
+    private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
     private final Duration resourceWaitingTime;
+    private final Duration semanticAnalyzingTime;
+    private final Duration columnAccessPermissionCheckingTime;
     private final Duration dispatchingTime;
     private final Duration executionTime;
     private final Duration analysisTime;
@@ -72,6 +76,7 @@ public class QueryStats
     private final int completedDrivers;
 
     private final double cumulativeUserMemory;
+    private final double cumulativeTotalMemory;
     private final DataSize userMemoryReservation;
     private final DataSize totalMemoryReservation;
     private final DataSize peakUserMemoryReservation;
@@ -117,8 +122,11 @@ public class QueryStats
             @JsonProperty("endTime") DateTime endTime,
 
             @JsonProperty("elapsedTime") Duration elapsedTime,
+            @JsonProperty("waitingForPrerequisitesTime") Duration waitingForPrerequisitesTime,
             @JsonProperty("queuedTime") Duration queuedTime,
             @JsonProperty("resourceWaitingTime") Duration resourceWaitingTime,
+            @JsonProperty("semanticAnalyzingTime") Duration semanticAnalyzingTime,
+            @JsonProperty("columnAccessPermissionCheckingTime") Duration columnAccessPermissionCheckingTime,
             @JsonProperty("dispatchingTime") Duration dispatchingTime,
             @JsonProperty("executionTime") Duration executionTime,
             @JsonProperty("analysisTime") Duration analysisTime,
@@ -137,6 +145,7 @@ public class QueryStats
             @JsonProperty("completedDrivers") int completedDrivers,
 
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
+            @JsonProperty("cumulativeTotalMemory") double cumulativeTotalMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
             @JsonProperty("peakUserMemoryReservation") DataSize peakUserMemoryReservation,
@@ -180,8 +189,11 @@ public class QueryStats
         this.endTime = endTime;
 
         this.elapsedTime = requireNonNull(elapsedTime, "elapsedTime is null");
+        this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
         this.resourceWaitingTime = requireNonNull(resourceWaitingTime, "resourceWaitingTime is null");
+        this.semanticAnalyzingTime = requireNonNull(semanticAnalyzingTime, "semanticAnalyzingTime is null");
+        this.columnAccessPermissionCheckingTime = requireNonNull(columnAccessPermissionCheckingTime, "columnAccessPermissionCheckingTime is null");
         this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
         this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
@@ -209,6 +221,8 @@ public class QueryStats
         this.completedDrivers = completedDrivers;
         checkArgument(cumulativeUserMemory >= 0, "cumulativeUserMemory is negative");
         this.cumulativeUserMemory = cumulativeUserMemory;
+        checkArgument(cumulativeTotalMemory >= 0, "cumulativeTotalMemory is negative");
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.userMemoryReservation = requireNonNull(userMemoryReservation, "userMemoryReservation is null");
         this.totalMemoryReservation = requireNonNull(totalMemoryReservation, "totalMemoryReservation is null");
         this.peakUserMemoryReservation = requireNonNull(peakUserMemoryReservation, "peakUserMemoryReservation is null");
@@ -269,7 +283,8 @@ public class QueryStats
         int blockedDrivers = 0;
         int completedDrivers = 0;
 
-        long cumulativeUserMemory = 0;
+        double cumulativeUserMemory = 0;
+        double cumulativeTotalMemory = 0;
         long userMemoryReservation = 0;
         long totalMemoryReservation = 0;
 
@@ -315,6 +330,7 @@ public class QueryStats
             completedDrivers += stageExecutionStats.getCompletedDrivers();
 
             cumulativeUserMemory += stageExecutionStats.getCumulativeUserMemory();
+            cumulativeTotalMemory += stageExecutionStats.getCumulativeTotalMemory();
             userMemoryReservation += stageExecutionStats.getUserMemoryReservation().toBytes();
             totalMemoryReservation += stageExecutionStats.getTotalMemoryReservation().toBytes();
             totalScheduledTime += stageExecutionStats.getTotalScheduledTime().roundTo(MILLISECONDS);
@@ -373,8 +389,11 @@ public class QueryStats
                 queryStateTimer.getEndTime().orElse(null),
 
                 queryStateTimer.getElapsedTime(),
+                queryStateTimer.getWaitingForPrerequisitesTime(),
                 queryStateTimer.getQueuedTime(),
                 queryStateTimer.getResourceWaitingTime(),
+                queryStateTimer.getSemanticAnalyzingTime(),
+                queryStateTimer.getColumnAccessPermissionCheckingTime(),
                 queryStateTimer.getDispatchingTime(),
                 queryStateTimer.getExecutionTime(),
                 queryStateTimer.getAnalysisTime(),
@@ -393,6 +412,7 @@ public class QueryStats
                 completedDrivers,
 
                 cumulativeUserMemory,
+                cumulativeTotalMemory,
                 succinctBytes(userMemoryReservation),
                 succinctBytes(totalMemoryReservation),
                 peakUserMemoryReservation,
@@ -466,6 +486,10 @@ public class QueryStats
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
                 new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                new Duration(0, MILLISECONDS),
+                0,
                 0,
                 0,
                 0,
@@ -537,9 +561,27 @@ public class QueryStats
     }
 
     @JsonProperty
+    public Duration getWaitingForPrerequisitesTime()
+    {
+        return waitingForPrerequisitesTime;
+    }
+
+    @JsonProperty
     public Duration getResourceWaitingTime()
     {
         return resourceWaitingTime;
+    }
+
+    @JsonProperty
+    public Duration getSemanticAnalyzingTime()
+    {
+        return semanticAnalyzingTime;
+    }
+
+    @JsonProperty
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return columnAccessPermissionCheckingTime;
     }
 
     @JsonProperty
@@ -636,6 +678,12 @@ public class QueryStats
     public double getCumulativeUserMemory()
     {
         return cumulativeUserMemory;
+    }
+
+    @JsonProperty
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
     }
 
     @JsonProperty
@@ -815,5 +863,13 @@ public class QueryStats
         return succinctBytes(operatorSummaries.stream()
                 .mapToLong(stats -> stats.getSpilledDataSize().toBytes())
                 .sum());
+    }
+
+    @JsonProperty
+    public RuntimeStats getRuntimeStats()
+    {
+        RuntimeStats runtimeStats = new RuntimeStats();
+        operatorSummaries.stream().forEach(stats -> runtimeStats.mergeWith(stats.getRuntimeStats()));
+        return runtimeStats;
     }
 }

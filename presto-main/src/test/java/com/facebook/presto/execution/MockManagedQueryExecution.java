@@ -37,6 +37,7 @@ import static com.facebook.presto.execution.QueryState.FAILED;
 import static com.facebook.presto.execution.QueryState.FINISHED;
 import static com.facebook.presto.execution.QueryState.QUEUED;
 import static com.facebook.presto.execution.QueryState.RUNNING;
+import static com.facebook.presto.execution.QueryState.WAITING_FOR_PREREQUISITES;
 import static com.facebook.presto.testing.TestingSession.testSessionBuilder;
 import static io.airlift.units.DataSize.Unit.BYTE;
 import static io.airlift.units.DataSize.succinctBytes;
@@ -50,7 +51,7 @@ public class MockManagedQueryExecution
     private final DataSize memoryUsage;
     private final Duration cpuUsage;
     private final Session session;
-    private QueryState state = QUEUED;
+    private QueryState state = WAITING_FOR_PREREQUISITES;
     private Throwable failureCause;
 
     public MockManagedQueryExecution(long memoryUsage)
@@ -96,6 +97,12 @@ public class MockManagedQueryExecution
     }
 
     @Override
+    public boolean isRetry()
+    {
+        return false;
+    }
+
+    @Override
     public BasicQueryInfo getBasicQueryInfo()
     {
         return new BasicQueryInfo(
@@ -110,6 +117,7 @@ public class MockManagedQueryExecution
                 new BasicQueryStats(
                         new DateTime(1),
                         new DateTime(2),
+                        new Duration(2, NANOSECONDS),
                         new Duration(3, NANOSECONDS),
                         new Duration(4, NANOSECONDS),
                         new Duration(5, NANOSECONDS),
@@ -121,6 +129,7 @@ public class MockManagedQueryExecution
                         new DataSize(14, BYTE),
                         15,
                         16.0,
+                        25.0,
                         new DataSize(17, BYTE),
                         new DataSize(18, BYTE),
                         new DataSize(19, BYTE),
@@ -159,6 +168,13 @@ public class MockManagedQueryExecution
     public QueryState getState()
     {
         return state;
+    }
+
+    @Override
+    public void startWaitingForPrerequisites()
+    {
+        state = QUEUED;
+        fireStateChange();
     }
 
     @Override

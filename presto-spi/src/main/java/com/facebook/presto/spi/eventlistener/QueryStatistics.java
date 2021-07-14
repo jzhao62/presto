@@ -23,8 +23,15 @@ public class QueryStatistics
     private final Duration cpuTime;
     private final Duration retriedCpuTime;
     private final Duration wallTime;
+    private final Duration waitingForPrerequisitesTime;
     private final Duration queuedTime;
+    private final Duration waitingForResourcesTime;
+    private final Duration semanticAnalyzingTime;
+    private final Duration columnAccessPermissionCheckingTime;
+    private final Duration dispatchingTime;
+    private final Duration planningTime;
     private final Optional<Duration> analysisTime;
+    private final Duration executionTime;
 
     private final int peakRunningTasks;
     private final long peakUserMemoryBytes;
@@ -43,6 +50,7 @@ public class QueryStatistics
     private final long spilledBytes;
 
     private final double cumulativeMemory;
+    private final double cumulativeTotalMemory;
 
     private final int completedSplits;
     private final boolean complete;
@@ -51,8 +59,15 @@ public class QueryStatistics
             Duration cpuTime,
             Duration retriedCpuTime,
             Duration wallTime,
+            Duration waitingForPrerequisitesTime,
             Duration queuedTime,
+            Duration waitingForResourcesTime,
+            Duration semanticAnalyzingTime,
+            Duration columnAccessPermissionCheckingTime,
+            Duration dispatchingTime,
+            Duration planningTime,
             Optional<Duration> analysisTime,
+            Duration executionTime,
             int peakRunningTasks,
             long peakUserMemoryBytes,
             long peakTotalNonRevocableMemoryBytes,
@@ -68,14 +83,22 @@ public class QueryStatistics
             long writtenIntermediateBytes,
             long spilledBytes,
             double cumulativeMemory,
+            double cumulativeTotalMemory,
             int completedSplits,
             boolean complete)
     {
         this.cpuTime = requireNonNull(cpuTime, "cpuTime is null");
         this.retriedCpuTime = requireNonNull(retriedCpuTime, "retriedCpuTime is null");
         this.wallTime = requireNonNull(wallTime, "wallTime is null");
+        this.waitingForPrerequisitesTime = requireNonNull(waitingForPrerequisitesTime, "waitingForPrerequisitesTime is null");
         this.queuedTime = requireNonNull(queuedTime, "queuedTime is null");
+        this.waitingForResourcesTime = requireNonNull(waitingForResourcesTime, "waitingForResourcesTime is null");
+        this.semanticAnalyzingTime = requireNonNull(semanticAnalyzingTime, "semanticAnalyzingTime is null");
+        this.columnAccessPermissionCheckingTime = requireNonNull(columnAccessPermissionCheckingTime, "columnAccessPermissionCheckingTime is null");
+        this.dispatchingTime = requireNonNull(dispatchingTime, "dispatchingTime is null");
+        this.planningTime = requireNonNull(planningTime, "planningTime is null");
         this.analysisTime = requireNonNull(analysisTime, "analysisTime is null");
+        this.executionTime = requireNonNull(executionTime, "executionTime is null");
         this.peakRunningTasks = peakRunningTasks;
         this.peakUserMemoryBytes = peakUserMemoryBytes;
         this.peakTotalNonRevocableMemoryBytes = peakTotalNonRevocableMemoryBytes;
@@ -91,6 +114,7 @@ public class QueryStatistics
         this.writtenIntermediateBytes = writtenIntermediateBytes;
         this.spilledBytes = spilledBytes;
         this.cumulativeMemory = cumulativeMemory;
+        this.cumulativeTotalMemory = cumulativeTotalMemory;
         this.completedSplits = completedSplits;
         this.complete = complete;
     }
@@ -110,14 +134,49 @@ public class QueryStatistics
         return wallTime;
     }
 
+    public Duration getWaitingForPrerequisitesTime()
+    {
+        return waitingForPrerequisitesTime;
+    }
+
     public Duration getQueuedTime()
     {
         return queuedTime;
     }
 
+    public Duration getWaitingForResourcesTime()
+    {
+        return waitingForResourcesTime;
+    }
+
+    public Duration getSemanticAnalyzingTime()
+    {
+        return semanticAnalyzingTime;
+    }
+
+    public Duration getColumnAccessPermissionCheckingTime()
+    {
+        return columnAccessPermissionCheckingTime;
+    }
+
+    public Duration getDispatchingTime()
+    {
+        return dispatchingTime;
+    }
+
+    public Duration getPlanningTime()
+    {
+        return planningTime;
+    }
+
     public Optional<Duration> getAnalysisTime()
     {
         return analysisTime;
+    }
+
+    public Duration getExecutionTime()
+    {
+        return executionTime;
     }
 
     public int getPeakRunningTasks()
@@ -193,6 +252,11 @@ public class QueryStatistics
     public double getCumulativeMemory()
     {
         return cumulativeMemory;
+    }
+
+    public double getCumulativeTotalMemory()
+    {
+        return cumulativeTotalMemory;
     }
 
     public int getCompletedSplits()

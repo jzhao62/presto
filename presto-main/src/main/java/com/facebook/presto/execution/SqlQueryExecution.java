@@ -98,6 +98,7 @@ public class SqlQueryExecution
 
     private final QueryStateMachine stateMachine;
     private final String slug;
+    private final int retryCount;
     private final Metadata metadata;
     private final SqlParser sqlParser;
     private final SplitManager splitManager;
@@ -120,11 +121,13 @@ public class SqlQueryExecution
     private final PlanChecker planChecker;
     private final PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private final AtomicReference<PlanVariableAllocator> variableAllocator = new AtomicReference<>();
+    private final PartialResultQueryManager partialResultQueryManager;
 
     private SqlQueryExecution(
             PreparedQuery preparedQuery,
             QueryStateMachine stateMachine,
             String slug,
+            int retryCount,
             Metadata metadata,
             AccessControl accessControl,
             SqlParser sqlParser,
@@ -143,10 +146,12 @@ public class SqlQueryExecution
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
-            PlanChecker planChecker)
+            PlanChecker planChecker,
+            PartialResultQueryManager partialResultQueryManager)
     {
         try (SetThreadName ignored = new SetThreadName("Query-%s", stateMachine.getQueryId())) {
             this.slug = requireNonNull(slug, "slug is null");
+            this.retryCount = retryCount;
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
@@ -166,6 +171,8 @@ public class SqlQueryExecution
 
             // analyze query
             requireNonNull(preparedQuery, "preparedQuery is null");
+
+            stateMachine.beginSemanticAnalyzing();
             Analyzer analyzer = new Analyzer(
                     stateMachine.getSession(),
                     metadata,
@@ -175,9 +182,12 @@ public class SqlQueryExecution
                     preparedQuery.getParameters(),
                     warningCollector);
 
-            this.analysis = analyzer.analyze(preparedQuery.getStatement());
-
+            this.analysis = analyzer.analyzeSemantic(preparedQuery.getStatement(), false);
             stateMachine.setUpdateType(analysis.getUpdateType());
+
+            stateMachine.beginColumnAccessPermissionChecking();
+            analyzer.checkColumnAccessPermissions(this.analysis);
+            stateMachine.endColumnAccessPermissionChecking();
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQuerySchedulerInterface> queryScheduler = this.queryScheduler;
@@ -194,6 +204,7 @@ public class SqlQueryExecution
             });
 
             this.remoteTaskFactory = new TrackingRemoteTaskFactory(requireNonNull(remoteTaskFactory, "remoteTaskFactory is null"), stateMachine);
+            this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
         }
     }
 
@@ -201,6 +212,12 @@ public class SqlQueryExecution
     public String getSlug()
     {
         return slug;
+    }
+
+    @Override
+    public int getRetryCount()
+    {
+        return retryCount;
     }
 
     @Override
@@ -499,7 +516,8 @@ public class SqlQueryExecution
                         variableAllocator.get(),
                         planChecker,
                         metadata,
-                        sqlParser) :
+                        sqlParser,
+                        partialResultQueryManager) :
                 SqlQueryScheduler.createSqlQueryScheduler(
                         locationFactory,
                         executionPolicy,
@@ -520,7 +538,8 @@ public class SqlQueryExecution
                         variableAllocator.get(),
                         planChecker,
                         metadata,
-                        sqlParser);
+                        sqlParser,
+                        partialResultQueryManager);
 
         queryScheduler.set(scheduler);
 
@@ -692,6 +711,7 @@ public class SqlQueryExecution
         private final StatsCalculator statsCalculator;
         private final CostCalculator costCalculator;
         private final PlanChecker planChecker;
+        private final PartialResultQueryManager partialResultQueryManager;
 
         @Inject
         SqlQueryExecutionFactory(QueryManagerConfig config,
@@ -711,7 +731,8 @@ public class SqlQueryExecution
                 SplitSchedulerStats schedulerStats,
                 StatsCalculator statsCalculator,
                 CostCalculator costCalculator,
-                PlanChecker planChecker)
+                PlanChecker planChecker,
+                PartialResultQueryManager partialResultQueryManager)
         {
             requireNonNull(config, "config is null");
             this.schedulerStats = requireNonNull(schedulerStats, "schedulerStats is null");
@@ -733,6 +754,7 @@ public class SqlQueryExecution
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.planChecker = requireNonNull(planChecker, "planChecker is null");
+            this.partialResultQueryManager = requireNonNull(partialResultQueryManager, "partialResultQueryManager is null");
         }
 
         @Override
@@ -740,6 +762,7 @@ public class SqlQueryExecution
                 PreparedQuery preparedQuery,
                 QueryStateMachine stateMachine,
                 String slug,
+                int retryCount,
                 WarningCollector warningCollector,
                 Optional<QueryType> queryType)
         {
@@ -751,6 +774,7 @@ public class SqlQueryExecution
                     preparedQuery,
                     stateMachine,
                     slug,
+                    retryCount,
                     metadata,
                     accessControl,
                     sqlParser,
@@ -769,7 +793,8 @@ public class SqlQueryExecution
                     statsCalculator,
                     costCalculator,
                     warningCollector,
-                    planChecker);
+                    planChecker,
+                    partialResultQueryManager);
 
             return execution;
         }

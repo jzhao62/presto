@@ -227,6 +227,11 @@ public abstract class AstVisitor<R, C>
         return visitNode(node, context);
     }
 
+    protected R visitOffset(Offset node, C context)
+    {
+        return visitNode(node, context);
+    }
+
     protected R visitQuerySpecification(QuerySpecification node, C context)
     {
         return visitQueryBody(node, context);
@@ -598,6 +603,11 @@ public abstract class AstVisitor<R, C>
     }
 
     protected R visitDropMaterializedView(DropMaterializedView node, C context)
+    {
+        return visitStatement(node, context);
+    }
+
+    protected R visitRefreshMaterializedView(RefreshMaterializedView node, C context)
     {
         return visitStatement(node, context);
     }

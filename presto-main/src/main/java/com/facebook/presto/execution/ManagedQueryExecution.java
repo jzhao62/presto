@@ -24,6 +24,8 @@ import java.util.Optional;
 
 public interface ManagedQueryExecution
 {
+    void startWaitingForPrerequisites();
+
     void startWaitingForResources();
 
     void fail(Throwable cause);
@@ -51,4 +53,6 @@ public interface ManagedQueryExecution
      * @return Returns non-empty value iff error has occurred and query failed state is visible.
      */
     Optional<ErrorCode> getErrorCode();
+
+    boolean isRetry();
 }

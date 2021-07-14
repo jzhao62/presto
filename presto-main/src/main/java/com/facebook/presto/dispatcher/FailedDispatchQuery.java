@@ -67,6 +67,7 @@ public class FailedDispatchQuery
         this.dispatchInfo = DispatchInfo.failed(
                 failure,
                 basicQueryInfo.getQueryStats().getElapsedTime(),
+                basicQueryInfo.getQueryStats().getWaitingForPrerequisitesTime(),
                 basicQueryInfo.getQueryStats().getQueuedTime());
     }
 
@@ -101,6 +102,9 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public void startWaitingForPrerequisites() {}
+
+    @Override
     public void startWaitingForResources() {}
 
     @Override
@@ -128,6 +132,12 @@ public class FailedDispatchQuery
     public Optional<ErrorCode> getErrorCode()
     {
         return Optional.ofNullable(basicQueryInfo.getErrorCode());
+    }
+
+    @Override
+    public boolean isRetry()
+    {
+        return false;
     }
 
     @Override

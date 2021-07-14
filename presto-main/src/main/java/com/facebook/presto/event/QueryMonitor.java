@@ -153,8 +153,16 @@ public class QueryMonitor
                         ofMillis(0),
                         ofMillis(0),
                         ofMillis(0),
+                        ofMillis(queryInfo.getQueryStats().getWaitingForPrerequisitesTime().toMillis()),
                         ofMillis(queryInfo.getQueryStats().getQueuedTime().toMillis()),
+                        ofMillis(0),
+                        ofMillis(0),
+                        ofMillis(0),
+                        ofMillis(0),
+                        ofMillis(0),
                         Optional.empty(),
+                        ofMillis(0),
+                        0,
                         0,
                         0,
                         0,
@@ -271,7 +279,8 @@ public class QueryMonitor
                         operatorSummary.getPeakSystemMemoryReservation(),
                         operatorSummary.getPeakTotalMemoryReservation(),
                         operatorSummary.getSpilledDataSize(),
-                        Optional.ofNullable(operatorSummary.getInfo()).map(operatorInfoCodec::toJson)))
+                        Optional.ofNullable(operatorSummary.getInfo()).map(operatorInfoCodec::toJson),
+                        operatorSummary.getRuntimeStats()))
                 .collect(toImmutableList());
     }
 
@@ -283,8 +292,15 @@ public class QueryMonitor
                 ofMillis(queryStats.getTotalCpuTime().toMillis()),
                 ofMillis(queryStats.getRetriedCpuTime().toMillis()),
                 ofMillis(queryStats.getTotalScheduledTime().toMillis()),
+                ofMillis(queryStats.getWaitingForPrerequisitesTime().toMillis()),
                 ofMillis(queryStats.getQueuedTime().toMillis()),
+                ofMillis(queryStats.getResourceWaitingTime().toMillis()),
+                ofMillis(queryStats.getSemanticAnalyzingTime().toMillis()),
+                ofMillis(queryStats.getColumnAccessPermissionCheckingTime().toMillis()),
+                ofMillis(queryStats.getDispatchingTime().toMillis()),
+                ofMillis(queryStats.getTotalPlanningTime().toMillis()),
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
+                ofMillis(queryStats.getExecutionTime().toMillis()),
                 queryStats.getPeakRunningTasks(),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
                 queryStats.getPeakTotalMemoryReservation().toBytes(),
@@ -300,6 +316,7 @@ public class QueryMonitor
                 queryStats.getWrittenIntermediatePhysicalDataSize().toBytes(),
                 queryStats.getSpilledDataSize().toBytes(),
                 queryStats.getCumulativeUserMemory(),
+                queryStats.getCumulativeTotalMemory(),
                 queryStats.getCompletedDrivers(),
                 queryInfo.isCompleteInfo());
     }

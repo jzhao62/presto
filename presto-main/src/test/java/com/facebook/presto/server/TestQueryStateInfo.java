@@ -45,7 +45,7 @@ public class TestQueryStateInfo
     @Test
     public void testQueryStateInfo()
     {
-        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor());
+        InternalResourceGroup.RootInternalResourceGroup root = new InternalResourceGroup.RootInternalResourceGroup("root", (group, export) -> {}, directExecutor(), ignored -> Optional.empty(), rg -> false);
         root.setSoftMemoryLimit(new DataSize(1, MEGABYTE));
         root.setMaxQueuedQueries(40);
         root.setHardConcurrencyLimit(0);
@@ -108,8 +108,11 @@ public class TestQueryStateInfo
                         DateTime.parse("1991-09-06T05:02-05:30"),
                         DateTime.parse("1991-09-06T06:00-05:30"),
                         Duration.valueOf("8m"),
+                        Duration.valueOf("5m"),
                         Duration.valueOf("7m"),
                         Duration.valueOf("34m"),
+                        Duration.valueOf("5m"),
+                        Duration.valueOf("6m"),
                         Duration.valueOf("35m"),
                         Duration.valueOf("44m"),
                         Duration.valueOf("9m"),
@@ -125,6 +128,7 @@ public class TestQueryStateInfo
                         34,
                         19,
                         20.0,
+                        43.0,
                         DataSize.valueOf("21GB"),
                         DataSize.valueOf("22GB"),
                         DataSize.valueOf("23GB"),

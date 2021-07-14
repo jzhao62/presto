@@ -41,6 +41,7 @@ import com.facebook.presto.cost.ScalarStatsCalculator;
 import com.facebook.presto.cost.StatsCalculator;
 import com.facebook.presto.cost.StatsNormalizer;
 import com.facebook.presto.cost.TaskCountEstimator;
+import com.facebook.presto.dispatcher.QueryPrerequisitesManager;
 import com.facebook.presto.eventlistener.EventListenerManager;
 import com.facebook.presto.execution.AlterFunctionTask;
 import com.facebook.presto.execution.CommitTask;
@@ -219,6 +220,8 @@ import java.util.function.Function;
 import static com.facebook.airlift.concurrent.MoreFutures.getFutureValue;
 import static com.facebook.airlift.concurrent.Threads.daemonThreadsNamed;
 import static com.facebook.airlift.json.JsonCodec.jsonCodec;
+import static com.facebook.presto.SystemSessionProperties.getQueryMaxTotalMemoryPerNode;
+import static com.facebook.presto.SystemSessionProperties.isVerboseExceededMemoryLimitErrorsEnabled;
 import static com.facebook.presto.cost.StatsCalculatorModule.createNewStatsCalculator;
 import static com.facebook.presto.execution.scheduler.StreamingPlanSection.extractStreamingSections;
 import static com.facebook.presto.execution.scheduler.TableWriteInfo.createTableWriteInfo;
@@ -357,7 +360,8 @@ public class LocalQueryRunner
                                 featuresConfig,
                                 new NodeMemoryConfig(),
                                 new WarningCollectorConfig(),
-                                new NodeSchedulerConfig())),
+                                new NodeSchedulerConfig(),
+                                new NodeSpillConfig())),
                 new SchemaPropertyManager(),
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
@@ -429,6 +433,7 @@ public class LocalQueryRunner
                 new EventListenerManager(),
                 blockEncodingManager,
                 new TestingTempStorageManager(),
+                new QueryPrerequisitesManager(),
                 new SessionPropertyDefaults(nodeInfo));
 
         connectorManager.addConnectorFactory(globalSystemConnectorFactory);
@@ -714,12 +719,15 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
+            Plan plan = createPlan(session, sql, warningCollector);
+
             TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
                     .setMaxSpillSize(nodeSpillConfig.getMaxSpillPerNode())
                     .setQueryMaxSpillSize(nodeSpillConfig.getQueryMaxSpillPerNode())
+                    .setQueryMaxTotalMemory(getQueryMaxTotalMemoryPerNode(session))
+                    .setTaskPlan(plan.getRoot())
                     .build();
-
-            Plan plan = createPlan(session, sql, warningCollector);
+            taskContext.getQueryContext().setVerboseExceededMemoryLimitErrorsEnabled(isVerboseExceededMemoryLimitErrorsEnabled(session));
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -794,6 +802,7 @@ public class LocalQueryRunner
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig().setTaskConcurrency(4),
+                new MemoryManagerConfig(),
                 spillerFactory,
                 singleStreamSpillerFactory,
                 partitioningSpillerFactory,
